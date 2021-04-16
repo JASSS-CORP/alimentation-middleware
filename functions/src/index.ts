@@ -1,66 +1,100 @@
-//import * as functions from "firebase-functions";
+/* eslint-disable */
 
 // // Start writing Firebase Functions
 // // https://firebase.google.com/docs/functions/typescript
-//
-// export const helloWorld = functions.https.onRequest((request, response) => {
-//   functions.logger.info("Hello logs!", {structuredData: true});
-//   response.send("Hello from Firebase!");
-// });
+
 
 const functions = require('firebase-functions');
 const admin = require("firebase-admin");
-const express = require("express");
-const {ApolloServer, gql} = require("apollo-server-express")
+const express = require("express");``
 
-const serviceAccount = require('../alimentation-851c0-firebase-adminsdk-ghv68-74b1927583.json')
+admin.initializeApp()
+/*
+credential: admin.credential.cert(serviceAccount),
+databaseURL: "https://alimentation-851c0-default-rtdb.firebaseio.com"
+*/
+const db = admin.firestore();
 
-admin.initializeApp({
-    credential: admin.credential.cert(serviceAccount),
-    databaseURL: "https://alimentation-851c0-default-rtdb.firebaseio.com"
+const addUserDoc =(user) => {
+    return db.collection("users").doc(user.uid).set({
+       bankaccount: null,
+       credit_card: null,
+       email: user.email,
+       main_address: {
+           address1: null,
+           address2: null,
+           city: null,
+           name: null,
+           state: null,
+           zip: null
+       },
+       name: {
+           first: user.displayName,
+           middle: null,
+           last: null
+       },
+       other_addresses: [],
+       password: null,
+       phone_number: null,
+       profile_pic_url: user.photoURL
+   })
+}
+
+const addCustomer = async (user) => {
+    await db.collection("users").doc(user.uid).collection("customer").doc().set({
+        favoite_items: [],
+        favorite_stores: [],
+        previous_bought_stores: []
+    })
+    
+    return db.collection("users").doc(user.uid).collection("customer").get().then(snapshot => {
+        snapshot.forEach(customerDoc => {
+            customerDoc.ref.collection("shopping_cart").doc().set({
+                items: [],
+                total_cost: 0
+            })
+        })
+    })
+}
+
+const createPublicProfile = async (user) => {
+    return db.collection("users").doc(user.uid).collection("public_profile").doc().set({
+        average_rating: "5",
+        name: {
+            fname: null,
+            lname: null,
+            mname: null
+        },
+        phone_number: null,
+        profile_pic_url: user.photoURL
+    })
+}
+
+
+exports.processSignUp = functions.auth.user().onCreate(async user => {
+    console.log(user)
+    await addUserDoc(user);
+    await addCustomer(user);
+    await createPublicProfile(user);
 
 })
 
-const db = admin.firestore();
+const SALES_TAX = 0.09;
+const DELIVERY_FEE = 10;
 
-const typeDefs = gql`
-    type User {
-        addresses: [String],
-        username: String,
-        zip: Int
-    }
-
-    type Query {
-        users: [User]
-        myUser(id: String!): User
-    }
-`
-
-const resolvers = {
-    Query: {
-        users: () => {
-            return admin.firestore().collection('users').get().then((snap) => {
-                const tempDoc = [];
-                snap.docs.map((doc) => {
-                    tempDoc.push(doc.data())
-                })
-                console.log(tempDoc)
-                return tempDoc;
-            })
-        },
-        myUser: (parent, {id}) => {
-            
-            return admin.firestore().collection('users').doc(id).get().then(doc => {
-
-                    return doc.data()
-                
-            })
-        }
-    }
-}
-
-const app = express()
-const server = new ApolloServer({typeDefs, resolvers})
-server.applyMiddleware({app, path: "/", cors: true})
-
-exports.graphql = functions.https.onRequest(app)
+exports.shopCartCalc = 
+functions.firestore.document('users/{userId}/customer/{customerId}/shopping_cart/{shoppingCartId}')
+    .onWrite((change, context)=> {
+        let totalCost = 0;
+        change.after.data().items.forEach(item => {
+            totalCost += item.price * parseInt(item.quantity.amount)
+        })
+        let tax = totalCost * SALES_TAX;
+        totalCost = tax + totalCost + DELIVERY_FEE;
+        change.after.ref.set({
+            delivery: DELIVERY_FEE,
+            tax: tax,
+            total_cost: totalCost
+        }, {merge: true})
+        
+    })
