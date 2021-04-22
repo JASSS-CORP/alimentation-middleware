@@ -98,3 +98,37 @@ exports.shopCartCalc =
             }, { merge: true })
 
         })
+
+        /*
+const getItems = async (user) => {
+    const items = db.collection("users").doc(user).get().
+}
+
+exports.createTransaction = functions.https.onCall((data, context) => {
+    console.log("data", data)
+    const customer_id = data.customer_id;
+    const customerRef = db.collection("users").doc(customer_id).get()
+    const shopping_cart = customerRef.collection("shopping_cart").onSnapshot(snapshot => {
+        snapshot.forEach((doc) => {
+            
+        })
+    })
+    const payment_time = new Date().toISOString();
+    const customer_name = {
+        first: customerRef.data().name.first,
+        middle: customerRef.data().name.middle,
+        last: customerRef.data().name.last
+    }
+    const items = getItems(data.customer_id)
+    // const total_cost = customerRef.collection("shopping_cart").get().data().total_cost
+    const transaction_state = "Paid";
+    const delivery_address = {
+        address1: customerRef.data().main_address.address1,
+        address2: customerRef.data().main_address.address2,
+        city: customerRef.data().main_address.city,
+        state: customerRef.data().main_address.state,
+        zip: customerRef.data().main_address.zip
+    };
+    
+})
+*/
