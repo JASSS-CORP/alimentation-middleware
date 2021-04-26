@@ -99,36 +99,57 @@ exports.shopCartCalc =
 
         })
 
-        /*
-const getItems = async (user) => {
-    const items = db.collection("users").doc(user).get().
-}
 
-exports.createTransaction = functions.https.onCall((data, context) => {
-    console.log("data", data)
-    const customer_id = data.customer_id;
-    const customerRef = db.collection("users").doc(customer_id).get()
-    const shopping_cart = customerRef.collection("shopping_cart").onSnapshot(snapshot => {
-        snapshot.forEach((doc) => {
+const addTransaction = async (cart, userId) => {
+
+    db.collection("users").doc(userId).get().then( docRef => {
+        let name = docRef.data().name;
+        let address = docRef.data().main_address;
+        db.collection("transactions").doc().set({
+            customer_id: userId,
+            customer_name: name,
+            delivery_address: address,
+            delivery_cost: DELIVERY_FEE,
+            delivery_notes: "hello world",
+            delivery_time: new Date(Date.now() + 1000 * 60 * 2 * 60).toString(), //two hours later
+            driver_id: null,
+            driver_name: null,
+            items: cart.items,
+            payment_method: "MasterCard",
+            payment_time: new Date().toString(),
+            total_cost: cart.total_cost,
+            tax: cart.tax,
+            transaction_state: "paid",
             
         })
     })
-    const payment_time = new Date().toISOString();
-    const customer_name = {
-        first: customerRef.data().name.first,
-        middle: customerRef.data().name.middle,
-        last: customerRef.data().name.last
-    }
-    const items = getItems(data.customer_id)
-    // const total_cost = customerRef.collection("shopping_cart").get().data().total_cost
-    const transaction_state = "Paid";
-    const delivery_address = {
-        address1: customerRef.data().main_address.address1,
-        address2: customerRef.data().main_address.address2,
-        city: customerRef.data().main_address.city,
-        state: customerRef.data().main_address.state,
-        zip: customerRef.data().main_address.zip
-    };
+
+
+}
+
+const getItems = async (userId) => {
+    db.collection("users").doc(userId).collection("customer").get().then(customerSnap => {
+        customerSnap.forEach(doc => {
+            doc.ref.collection("shopping_cart").get().then(shoppingSnap => {
+                shoppingSnap.forEach(shopDoc => {
+                    shopDoc.ref.get().then(async shopDocSnap => {
+                        addTransaction(shopDocSnap.data(), userId);
+                        shopDocSnap.ref.set({
+                            tax: 0,
+                            delivery: DELIVERY_FEE,
+                            total_cost: 0,
+                            items:[]
+                        })
+                    })
+                })
+            })
+        })
+    })
+}
+
+exports.createTransaction = functions.https.onCall(async (data, context) => {
+    console.log("data", data)
+    const customer_id = data.customer_id;
+    getItems(customer_id)
     
 })
-*/
