@@ -3,10 +3,11 @@
 // // Start writing Firebase Functions
 // // https://firebase.google.com/docs/functions/typescript
 
-
+export{};
 const functions = require('firebase-functions');
 const admin = require("firebase-admin");
-const express = require("express"); ``
+const fetch = require("node-fetch")
+
 
 admin.initializeApp()
 /*
@@ -21,8 +22,8 @@ const addUserDoc = (user) => {
         credit_card: { nameOnCard: "", number: "", expiry: null, cvc: "" },
         email: user.email,
         main_address: {
-            address1: null,
-            address2: null,
+            street1: null,
+            street2: null,
             city: null,
             name: null,
             state: null,
@@ -102,10 +103,10 @@ exports.shopCartCalc =
 
 const addTransaction = async (cart, userId) => {
 
-    db.collection("users").doc(userId).get().then( docRef => {
+    await db.collection("users").doc(userId).get().then(async  docRef => {
         let name = docRef.data().name;
         let address = docRef.data().main_address;
-        db.collection("transactions").doc().set({
+        await db.collection("transactions").doc().set({
             customer_id: userId,
             customer_name: name,
             delivery_address: address,
@@ -120,7 +121,7 @@ const addTransaction = async (cart, userId) => {
             total_cost: cart.total_cost,
             tax: cart.tax,
             transaction_state: "paid",
-            
+            rating: null
         })
     })
 
@@ -128,13 +129,13 @@ const addTransaction = async (cart, userId) => {
 }
 
 const getItems = async (userId) => {
-    db.collection("users").doc(userId).collection("customer").get().then(customerSnap => {
-        customerSnap.forEach(doc => {
-            doc.ref.collection("shopping_cart").get().then(shoppingSnap => {
+    return db.collection("users").doc(userId).collection("customer").get().then(customerSnap => {
+        customerSnap.forEach(async doc => {
+            await doc.ref.collection("shopping_cart").get().then(shoppingSnap => {
                 shoppingSnap.forEach(shopDoc => {
                     shopDoc.ref.get().then(async shopDocSnap => {
                         addTransaction(shopDocSnap.data(), userId);
-                        shopDocSnap.ref.set({
+                        await shopDocSnap.ref.set({
                             tax: 0,
                             delivery: DELIVERY_FEE,
                             total_cost: 0,
@@ -150,6 +151,20 @@ const getItems = async (userId) => {
 exports.createTransaction = functions.https.onCall(async (data, context) => {
     console.log("data", data)
     const customer_id = data.customer_id;
-    getItems(customer_id)
-    
+    await getItems(customer_id)
+    return "Done";
+})
+
+exports.getDistance = functions.https.onCall(async (data, context) => {
+    console.log("data", data)
+    const user_address = data.user_address;
+    const store_address = data.store_address;
+    let distRes = 
+        await fetch(`https://maps.googleapis.com/maps/api/distancematrix/json?units=imperial&origins=${user_address}&destinations=${store_address}&key=${functions.config().geo.key}`)
+    let distJSON = await distRes.json();
+    if (distJSON.status === "OK")
+    {
+        return(distJSON.rows[0].elements[0].distance.text)
+    }
+    return null;
 })
